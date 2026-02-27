@@ -1,0 +1,23 @@
+# Environment variables
+.env
+
+# Persistence and Logs
+bot.log
+processed_ids.json
+daily_count.json
+*.png
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+
+# System generated artifacts
+brain/
+.agents/
+.agent/
+_agents/
+_agent/
+.gemini/
