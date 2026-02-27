@@ -1,1 +1,1 @@
-worker: bash start.sh
+worker: playwright install chromium && python bot.py
