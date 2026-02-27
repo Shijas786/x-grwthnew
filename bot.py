@@ -1,4 +1,9 @@
 import os
+import sys
+
+# Force Playwright to use the local cache directory in Railway
+os.environ["PLAYWRIGHT_BROWSERS_PATH"] = os.path.join(os.getcwd(), ".cache", "ms-playwright")
+
 import json
 import time
 import random
