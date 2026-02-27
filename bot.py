@@ -3,9 +3,10 @@ import os
 import sys
 
 # Force browser installation every time the container starts
-print("Ensuring Playwright browsers are installed...")
-subprocess.run(["playwright", "install", "chromium"], check=True)
-subprocess.run(["playwright", "install-deps", "chromium"], check=True)
+playwright_path = os.path.join(os.path.dirname(sys.executable), "playwright")
+print(f"Ensuring Playwright browsers are installed using: {playwright_path}")
+subprocess.run([playwright_path, "install", "chromium"], check=True)
+subprocess.run([playwright_path, "install-deps", "chromium"], check=True)
 
 # Force Playwright to use the local cache directory in Railway
 os.environ["PLAYWRIGHT_BROWSERS_PATH"] = os.path.join(os.getcwd(), ".cache", "ms-playwright")
