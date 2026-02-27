@@ -453,25 +453,31 @@ async def scrape_tweet_content(page, tweet_url):
     try:
         logger.info(f"Checking tweet details at {tweet_url}")
         await page.goto(tweet_url, wait_until="networkidle")
-        await asyncio.sleep(3)  # Wait for dynamic content
+        await asyncio.sleep(5)  # Increased wait time for dynamic content
         
         # Method 3: Page title check
         title = await page.title()
-        if "Replying to" in title:
-            logger.info(f"Method 3 (Title) match: '{title}' contains 'Replying to'. Not root.")
+        if "on X" in title and "Replying to" in title:
+            logger.info(f"Method 3 (Title) match: '{title}' indicates it's a reply. Not root.")
             return {"is_root": False}
         
         # Extract tweet data from the first visible tweet element
         tweet_element = await page.query_selector('[data-testid="tweet"]')
         if not tweet_element:
+            logger.warning("Could not find tweet element on the page.")
             return None
             
         inner_html = await tweet_element.inner_html()
         
-        # Method 1 & 2: DOM and HTML check
-        if "Replying to" in inner_html:
-            logger.info("Method 1/2 match: 'Replying to' found in tweet HTML. Not root.")
-            return {"is_root": False}
+        # Method 1 & 2: Check for markers of being a reply
+        # A root tweet doesn't have "Replying to @username" above the main text space
+        if 'div[dir="auto"]' in inner_html and ("Replying to" in inner_html or "En respuesta a" in inner_html):
+            # Check if this "Replying to" is actually part of the tweet context
+            # We look for the link that starts with "Replying to"
+            reply_indicator = await tweet_element.query_selector('div:has-text("Replying to")')
+            if reply_indicator:
+                logger.info("Reply indicator found in DOM. Not root.")
+                return {"is_root": False}
             
         # Extract metadata
         text_el = await tweet_element.query_selector('[data-testid="tweetText"]')
@@ -479,9 +485,16 @@ async def scrape_tweet_content(page, tweet_url):
         
         author_el = await tweet_element.query_selector('[data-testid="User-Name"]')
         author_text = await author_el.inner_text() if author_el else ""
-        author = author_text.split("@")[-1].split("\n")[0] if "@" in author_text else ""
+        # Improved author extraction
+        author = ""
+        if "@" in author_text:
+            # Usually format is "Name @username · Date"
+            parts = author_text.split("@")
+            if len(parts) > 1:
+                author = parts[1].split("\n")[0].split("·")[0].strip()
         
-        # If we got here and no "Replying to" was found, it's likely root (Method 5)
+        # Double check: if it's a root tweet, the URL should typically match the structure
+        # but since we are visiting it directly, we just check if it's NOT a reply.
         logger.info(f"Confirmed root tweet by @{author}: {text[:50]}...")
         return {
             "is_root": True,
@@ -499,6 +512,21 @@ async def scrape_influencer_replies(browser_context, username):
     # Speed up page load by blocking media
     await page.route("**/*.{png,jpg,jpeg,gif,svg,webp,woff,woff2,ttf}", lambda route: route.abort())
     
+    # Verify login by checking if 'Home' or profile link exists
+    try:
+        await page.goto("https://x.com/home", wait_until="networkidle")
+        await asyncio.sleep(3)
+        if await page.query_selector('[data-testid="SideNav_Account_Button"]'):
+            logger.info("Login verified: Successfully authenticated with X.")
+        else:
+            # Check if we are redirected to login
+            if "login" in page.url:
+                logger.error("Login FAILED: Redirected to login page. Check X_AUTH_TOKEN and X_CT0.")
+            else:
+                logger.warning("Could not verify login button, but proceeding...")
+    except Exception as e:
+        logger.warning(f"Login verification check failed: {e}")
+
     replies_url = f"https://x.com/{username}/with_replies"
     logger.info(f"Visiting {replies_url}")
     
@@ -517,10 +545,17 @@ async def scrape_influencer_replies(browser_context, username):
         results = []
         for el in tweet_elements:
             try:
-                # Check if it's a reply (influencer replying to someone)
+                # Robust reply detection: Look for 'Replying to' or specific link structure
                 html = await el.inner_html()
-                if "Replying to" not in html:
-                    continue # Not a reply by the influencer
+                
+                # Check for "Replying to" but be case-insensitive and handle potential locale variations
+                # or better: look for an anchor tag that starts with "Replying to" or has /status/ parent links
+                is_reply = False
+                if "Replying to" in html or "En respuesta a" in html or "@" in html:
+                    is_reply = True
+                
+                if not is_reply:
+                    continue
                 
                 # Extract links to find parent tweet
                 links = await el.query_selector_all('a[href*="/status/"]')
@@ -532,15 +567,19 @@ async def scrape_influencer_replies(browser_context, username):
                         if "status" in parts:
                             status_ids.append(parts[parts.index("status") + 1])
                 
-                # Unique status IDs, sorted (usually the last one is the tweet itself, others are parents)
+                # Unique status IDs, sorted
                 unique_ids = list(dict.fromkeys(status_ids))
+                
+                # If it's a reply by the influencer, we expect at least 2 unique status IDs:
+                # 1. The parent tweet (at least one)
+                # 2. The influencer's reply tweet itself
                 if len(unique_ids) < 2:
                     continue
                     
-                parent_id = unique_ids[0] # Usually the parent is the first status link in context
-                tweet_id = unique_ids[-1] # The influencer's reply tweet
+                parent_id = unique_ids[0]
+                tweet_id = unique_ids[-1]
                 
-                # Basic metadata from the influencer's reply itself
+                # Basic metadata
                 time_el = await el.query_selector('time')
                 timestamp = await time_el.get_attribute("datetime") if time_el else None
                 
