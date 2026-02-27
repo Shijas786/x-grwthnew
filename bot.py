@@ -27,11 +27,11 @@ from openai import OpenAI
 load_dotenv()
 
 # Configuration from environment variables
-X_AUTH_TOKEN = os.getenv("X_AUTH_TOKEN")
-X_CT0 = os.getenv("X_CT0")
-OUR_USERNAME = os.getenv("OUR_USERNAME")
-TARGET_INFLUENCER_USERNAME = os.getenv("TARGET_INFLUENCER_USERNAME")
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+X_AUTH_TOKEN = os.getenv("X_AUTH_TOKEN", "").strip()
+X_CT0 = os.getenv("X_CT0", "").strip()
+OUR_USERNAME = os.getenv("OUR_USERNAME", "").strip()
+TARGET_INFLUENCER_USERNAME = os.getenv("TARGET_INFLUENCER_USERNAME", "").strip()
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "").strip()
 MAX_REPLIES_PER_DAY = int(os.getenv("MAX_REPLIES_PER_DAY", 20))
 MAX_ENG_POSTS_PER_DAY = int(os.getenv("MAX_ENG_POSTS_PER_DAY", 3))
 MAX_IMG_POSTS_PER_DAY = int(os.getenv("MAX_IMG_POSTS_PER_DAY", 1))
@@ -255,7 +255,8 @@ def generate_dalle_image(prompt):
 
 def upload_media(file_path):
     """Upload media to X and return the media_id."""
-    base_url = "https://upload.x.com/i/api/1.1/media/upload.json"
+    # Use upload.twitter.com which is more stable for GraphQL media uploads
+    base_url = "https://upload.twitter.com/i/api/1.1/media/upload.json"
     headers = {
         "authorization": "Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I7BeIg1De8k%3DUq7gSnUYohsYmy88vuW8u0AaSMVYmFcwDLUeJMoTakMGbBBLsw",
         "cookie": f"auth_token={X_AUTH_TOKEN}; ct0={X_CT0}",
