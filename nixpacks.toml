@@ -5,7 +5,7 @@ nixPkgs = ["python311", "nodejs", "chromium", "glib", "nss", "nspr", "atk", "at-
 PLAYWRIGHT_BROWSERS_PATH = "/app/.cache/ms-playwright"
 
 [phases.install]
-cmds = ["pip install -r requirements.txt", "playwright install chromium", "playwright install-deps chromium"]
+cmds = ["pip install -r requirements.txt", "playwright install chromium --with-deps"]
 
 [start]
-cmd = "python bot.py"
+cmd = "bash start.sh"
