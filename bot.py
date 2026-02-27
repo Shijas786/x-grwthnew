@@ -147,7 +147,39 @@ openai_client = None
 if OPENAI_API_KEY:
     openai_client = OpenAI(api_key=OPENAI_API_KEY)
 else:
-    logger.error("CRITICAL: OPENAI_API_KEY is not set. Please add it to your Railway environment variables.")
+    logger.error("CRITICAL: OPENAI_API_KEY is not set.")
+
+def verify_authentication():
+    """Verify that the X_AUTH_TOKEN and X_CT0 are valid by calling an account endpoint."""
+    if not X_AUTH_TOKEN or not X_CT0:
+        logger.error("Authentication variables missing! Check X_AUTH_TOKEN and X_CT0.")
+        return False
+        
+    logger.info(f"Verifying authentication... (Token starts with: {X_AUTH_TOKEN[:4]}... CT0 starts with: {X_CT0[:4]}...)")
+    
+    url = "https://x.com/i/api/1.1/account/settings.json"
+    headers = {
+        "authorization": "Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I7BeIg1De8k%3DUq7gSnUYohsYmy88vuW8u0AaSMVYmFcwDLUeJMoTakMGbBBLsw",
+        "cookie": f"auth_token={X_AUTH_TOKEN}; ct0={X_CT0}",
+        "x-csrf-token": X_CT0,
+        "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+    }
+    
+    try:
+        response = requests.get(url, headers=headers)
+        if response.status_code == 200:
+            user_data = response.json()
+            screen_name = user_data.get("screen_name", "unknown")
+            logger.info(f"✅ AUTHENTICATION SUCCESSFUL! Logged in as: @{screen_name}")
+            return True
+        else:
+            logger.error(f"❌ AUTHENTICATION FAILED: {response.status_code} - {response.text}")
+            if "code\":32" in response.text:
+                logger.error("Error 32: Could not authenticate. YOUR COOKIES HAVE EXPIRED or are incorrect.")
+            return False
+    except Exception as e:
+        logger.error(f"Error during auth verification: {e}")
+        return False
 
 def openai_analyze_and_reply(tweet_text, author):
     """Use GPT-4 to analyze a tweet and generate a human-like reply."""
@@ -263,7 +295,7 @@ def upload_media(file_path):
         "x-csrf-token": X_CT0,
         "x-twitter-auth-type": "OAuth2Session",
         "x-twitter-active-user": "yes",
-        "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
     }
 
     try:
@@ -336,7 +368,7 @@ def post_tweet(text, media_id=None, reply_to_id=None):
         "content-type": "application/json",
         "x-twitter-auth-type": "OAuth2Session",
         "x-twitter-active-user": "yes",
-        "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
     }
     
     media_entities = []
@@ -602,6 +634,11 @@ async def scrape_influencer_replies(browser_context, username):
 async def main():
     """Main execution loop."""
     logger.info(f"Bot starting... Target: @{TARGET_INFLUENCER_USERNAME}")
+    
+    # Verify authentication first
+    if not verify_authentication():
+        logger.error("Authentication check failed. Please check your environment variables.")
+        # Proceed anyway as scraping might still work for a few tweets
     
     processed_ids = load_processed_ids()
     
