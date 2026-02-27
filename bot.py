@@ -131,7 +131,11 @@ async def poll_delay():
     await asyncio.sleep(delay)
 
 # OpenAI Integration
-openai_client = OpenAI(api_key=OPENAI_API_KEY)
+openai_client = None
+if OPENAI_API_KEY:
+    openai_client = OpenAI(api_key=OPENAI_API_KEY)
+else:
+    logger.error("CRITICAL: OPENAI_API_KEY is not set. Please add it to your Railway environment variables.")
 
 def openai_analyze_and_reply(tweet_text, author):
     """Use GPT-4 to analyze a tweet and generate a human-like reply."""
