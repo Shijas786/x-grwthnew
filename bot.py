@@ -157,14 +157,27 @@ def verify_authentication():
         
     logger.info(f"Verifying authentication... (Token starts with: {X_AUTH_TOKEN[:4]}... CT0 starts with: {X_CT0[:4]}...)")
     
-    url = "https://x.com/i/api/1.1/account/settings.json"
+    url = "https://api.x.com/1.1/account/settings.json"
     headers = {
-        "authorization": "Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I7BeIg1De8k%3DUq7gSnUYohsYmy88vuW8u0AaSMVYmFcwDLUeJMoTakMGbBBLsw",
-        "cookie": f"auth_token={X_AUTH_TOKEN}; ct0={X_CT0}",
+        "accept": "*/*",
+        "accept-language": "en-US,en;q=0.9,ml;q=0.8",
+        "authorization": "Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA",
+        "cookie": f"gt=2027535782123344354; __cuid=cc2c222100cb4e15bca288801a8f3898; kdt=Z1q8KuHntYjVPX9j07SDzm1ykYuJSk1IUxFnqtut; __cf_bm=7XuJ3xK1x22XQUUFaytZGeeRcD4Fru3tiqf.k0rOs4s-1772238532.653125-1.0.1.1-1n85R6iMXhr2QjFuNXEairk5EXS5KR6JSPbYQMW.ahL.5e8fIGmWLK2SOJ_qTGHyFN_78fjSn8mVQjASA3p0MADf4KWEjVzUAcjkp4NWmnp4AbZlBSmcOcozMrWM8KcE; dnt=1; guest_id=v1%3A177223860375254794; guest_id_marketing=v1%3A177223860375254794; guest_id_ads=v1%3A177223860375254794; personalization_id=\"v1_eOUrV9iuZJnzfU1D4Buhpg==\"; auth_token={X_AUTH_TOKEN}; ct0={X_CT0}; att=1-JDU2Xg8qNeeCBdrHaJh7yVy22qn33Yh603XLHZez; twid=u%3D1407376368782901251",
+        "origin": "https://x.com",
+        "priority": "u=1, i",
+        "referer": "https://x.com/",
+        "sec-ch-ua": '"Not:A-Brand";v="99", "Google Chrome";v="145", "Chromium";v="145"',
+        "sec-ch-ua-mobile": "?0",
+        "sec-ch-ua-platform": '"macOS"',
+        "sec-fetch-dest": "empty",
+        "sec-fetch-mode": "cors",
+        "sec-fetch-site": "same-site",
+        "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36",
+        "x-client-transaction-id": "Cj8IcSv8KAPGp0Y4rwJfqT/dX2eBOBWZBJPDi5yGR1pGPoP/UJy7+z7jiKt9EYmAq6LeWA9wumbwnku1IGuvBK6UO6b0CQ",
         "x-csrf-token": X_CT0,
-        "x-twitter-auth-type": "OAuth2Session",
         "x-twitter-active-user": "yes",
-        "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+        "x-twitter-auth-type": "OAuth2Session",
+        "x-twitter-client-language": "en"
     }
     
     try:
@@ -292,12 +305,25 @@ def upload_media(file_path):
     # Use upload.x.com which the modern web client uses
     base_url = "https://upload.x.com/i/api/1.1/media/upload.json"
     headers = {
-        "authorization": "Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I7BeIg1De8k%3DUq7gSnUYohsYmy88vuW8u0AaSMVYmFcwDLUeJMoTakMGbBBLsw",
-        "cookie": f"auth_token={X_AUTH_TOKEN}; ct0={X_CT0}",
+        "accept": "*/*",
+        "accept-language": "en-US,en;q=0.9,ml;q=0.8",
+        "authorization": "Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA",
+        "cookie": f"gt=2027535782123344354; __cuid=cc2c222100cb4e15bca288801a8f3898; kdt=Z1q8KuHntYjVPX9j07SDzm1ykYuJSk1IUxFnqtut; __cf_bm=7XuJ3xK1x22XQUUFaytZGeeRcD4Fru3tiqf.k0rOs4s-1772238532.653125-1.0.1.1-1n85R6iMXhr2QjFuNXEairk5EXS5KR6JSPbYQMW.ahL.5e8fIGmWLK2SOJ_qTGHyFN_78fjSn8mVQjASA3p0MADf4KWEjVzUAcjkp4NWmnp4AbZlBSmcOcozMrWM8KcE; dnt=1; guest_id=v1%3A177223860375254794; guest_id_marketing=v1%3A177223860375254794; guest_id_ads=v1%3A177223860375254794; personalization_id=\"v1_eOUrV9iuZJnzfU1D4Buhpg==\"; auth_token={X_AUTH_TOKEN}; ct0={X_CT0}; att=1-JDU2Xg8qNeeCBdrHaJh7yVy22qn33Yh603XLHZez; twid=u%3D1407376368782901251",
+        "origin": "https://x.com",
+        "priority": "u=1, i",
+        "referer": "https://x.com/",
+        "sec-ch-ua": '"Not:A-Brand";v="99", "Google Chrome";v="145", "Chromium";v="145"',
+        "sec-ch-ua-mobile": "?0",
+        "sec-ch-ua-platform": '"macOS"',
+        "sec-fetch-dest": "empty",
+        "sec-fetch-mode": "cors",
+        "sec-fetch-site": "same-site",
+        "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36",
+        "x-client-transaction-id": "Cj8IcSv8KAPGp0Y4rwJfqT/dX2eBOBWZBJPDi5yGR1pGPoP/UJy7+z7jiKt9EYmAq6LeWA9wumbwnku1IGuvBK6UO6b0CQ",
         "x-csrf-token": X_CT0,
-        "x-twitter-auth-type": "OAuth2Session",
         "x-twitter-active-user": "yes",
-        "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+        "x-twitter-auth-type": "OAuth2Session",
+        "x-twitter-client-language": "en"
     }
 
     try:
@@ -364,13 +390,26 @@ def post_tweet(text, media_id=None, reply_to_id=None):
     
     url = "https://x.com/i/api/graphql/SoVnbfCycZ7fERGCwpZkYA/CreateTweet"
     headers = {
-        "authorization": "Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I7BeIg1De8k%3DUq7gSnUYohsYmy88vuW8u0AaSMVYmFcwDLUeJMoTakMGbBBLsw",
-        "cookie": f"auth_token={X_AUTH_TOKEN}; ct0={X_CT0}",
+        "accept": "*/*",
+        "accept-language": "en-US,en;q=0.9,ml;q=0.8",
+        "authorization": "Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA",
+        "cookie": f"gt=2027535782123344354; __cuid=cc2c222100cb4e15bca288801a8f3898; kdt=Z1q8KuHntYjVPX9j07SDzm1ykYuJSk1IUxFnqtut; __cf_bm=7XuJ3xK1x22XQUUFaytZGeeRcD4Fru3tiqf.k0rOs4s-1772238532.653125-1.0.1.1-1n85R6iMXhr2QjFuNXEairk5EXS5KR6JSPbYQMW.ahL.5e8fIGmWLK2SOJ_qTGHyFN_78fjSn8mVQjASA3p0MADf4KWEjVzUAcjkp4NWmnp4AbZlBSmcOcozMrWM8KcE; dnt=1; guest_id=v1%3A177223860375254794; guest_id_marketing=v1%3A177223860375254794; guest_id_ads=v1%3A177223860375254794; personalization_id=\"v1_eOUrV9iuZJnzfU1D4Buhpg==\"; auth_token={X_AUTH_TOKEN}; ct0={X_CT0}; att=1-JDU2Xg8qNeeCBdrHaJh7yVy22qn33Yh603XLHZez; twid=u%3D1407376368782901251",
+        "origin": "https://x.com",
+        "priority": "u=1, i",
+        "referer": "https://x.com/",
+        "sec-ch-ua": '"Not:A-Brand";v="99", "Google Chrome";v="145", "Chromium";v="145"',
+        "sec-ch-ua-mobile": "?0",
+        "sec-ch-ua-platform": '"macOS"',
+        "sec-fetch-dest": "empty",
+        "sec-fetch-mode": "cors",
+        "sec-fetch-site": "same-site",
+        "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36",
+        "x-client-transaction-id": "Cj8IcSv8KAPGp0Y4rwJfqT/dX2eBOBWZBJPDi5yGR1pGPoP/UJy7+z7jiKt9EYmAq6LeWA9wumbwnku1IGuvBK6UO6b0CQ",
         "x-csrf-token": X_CT0,
         "content-type": "application/json",
-        "x-twitter-auth-type": "OAuth2Session",
         "x-twitter-active-user": "yes",
-        "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+        "x-twitter-auth-type": "OAuth2Session",
+        "x-twitter-client-language": "en"
     }
     
     media_entities = []
