@@ -511,8 +511,8 @@ async def post_tweet_playwright(context, text, image_path=None, reply_to_id=None
             button_clicked = True
             
         else:
-            url = "https://x.com/compose/tweet"
-            logger.info("Navigating to compose tweet page...")
+            url = "https://x.com/home"
+            logger.info("Navigating to home page to compose tweet...")
             await page.goto(url, wait_until="domcontentloaded", timeout=30000)
             
             await page.wait_for_selector('[data-testid="tweetTextarea_0"]', timeout=20000)
@@ -529,7 +529,7 @@ async def post_tweet_playwright(context, text, image_path=None, reply_to_id=None
                 except Exception as e:
                     logger.warning(f"File upload failed: {e}")
                 
-            btn_selector = '[data-testid="tweetButton"]'
+            btn_selector = '[data-testid="tweetButtonInline"]'
             
             is_disabled = await page.evaluate(f'''() => {{
                 const btn = document.querySelector('{btn_selector}');
@@ -723,9 +723,11 @@ async def scrape_parent_from_thread(page, reply_url):
         parent_id = None
         for link in links:
             href = await link.get_attribute("href")
-            if href and "status" in href.split("/"):
-                parent_id = href.split("/")[-1]
-                break
+            if href:
+                parts = href.split("/")
+                if "status" in parts:
+                    parent_id = parts[parts.index("status") + 1]
+                    break
                 
         if not parent_id:
             logger.warning("Could not extract parent_id from the top tweet in the thread.")
@@ -761,7 +763,7 @@ async def scrape_influencer_replies(browser_context, username):
     
     # Verify login by checking if 'Home' or profile link exists
     try:
-        await page.goto("https://x.com/home", wait_until="networkidle")
+        await page.goto("https://x.com/home", wait_until="domcontentloaded", timeout=20000)
         await asyncio.sleep(3)
         if await page.query_selector('[data-testid="SideNav_Account_Button"]'):
             logger.info("Login verified: Successfully authenticated with X.")
@@ -778,7 +780,7 @@ async def scrape_influencer_replies(browser_context, username):
     logger.info(f"Visiting {replies_url}")
     
     try:
-        await page.goto(replies_url, wait_until="networkidle")
+        await page.goto(replies_url, wait_until="domcontentloaded", timeout=20000)
         await asyncio.sleep(5)
         
         # Simulate human behavior
