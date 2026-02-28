@@ -453,21 +453,80 @@ def post_tweet(text, media_id=None, reply_to_id=None):
         logger.error(f"Error posting: {e}")
         return False
 
-# post_reply is now merged into post_tweet, but keep wrapper for compatibility
-def post_reply(reply_text, tweet_id):
-    """Post a reply using X's internal GraphQL API."""
-    global LAST_REPLY_TIME
+async def post_tweet_playwright(context, text, image_path=None, reply_to_id=None):
+    """Use Playwright UI automation to post a tweet or reply. This bypasses X's API anti-bot protections."""
+    global LAST_ENG_POST_TIME, LAST_REPLY_TIME
     
-    # Enforce minimum gap
-    now = time.time()
-    if now - LAST_REPLY_TIME < MIN_GAP_BETWEEN_REPLIES:
-        wait_needed = MIN_GAP_BETWEEN_REPLIES - (now - LAST_REPLY_TIME)
-        logger.info(f"Enforcing minimum gap. Waiting {wait_needed:.2f} seconds...")
-        time.sleep(wait_needed)
+    page = await context.new_page()
+    try:
+        if reply_to_id:
+            # Enforce minimum gap
+            now = time.time()
+            if now - LAST_REPLY_TIME < MIN_GAP_BETWEEN_REPLIES:
+                wait_needed = MIN_GAP_BETWEEN_REPLIES - (now - LAST_REPLY_TIME)
+                logger.info(f"Enforcing minimum gap. Waiting {wait_needed:.2f} seconds...")
+                await asyncio.sleep(wait_needed)
 
-    return post_tweet(reply_text, reply_to_id=tweet_id)
+            url = f"https://x.com/i/status/{reply_to_id}"
+            logger.info(f"Navigating to {url} to post reply via Playwright...")
+            await page.goto(url, wait_until="domcontentloaded", timeout=30000)
+            
+            await page.wait_for_selector('[data-testid="tweetTextarea_0"]', timeout=20000)
+            await page.click('[data-testid="tweetTextarea_0"]')
+            await asyncio.sleep(random.uniform(0.5, 1.5))
+            
+            await page.keyboard.type(text, delay=random.randint(10, 50))
+            await asyncio.sleep(random.uniform(0.5, 1.5))
+            
+            if image_path:
+                try:
+                    await page.set_input_files('input[type="file"]', image_path)
+                    await asyncio.sleep(5)
+                except Exception as e:
+                    logger.warning(f"File upload failed: {e}")
+                
+            await page.click('[data-testid="tweetButtonInline"]')
+            await asyncio.sleep(5)
+            logger.info("Reply posted successfully via Playwright!")
+            LAST_REPLY_TIME = time.time()
+            return True
+        else:
+            url = "https://x.com/compose/tweet"
+            logger.info("Navigating to compose tweet page...")
+            await page.goto(url, wait_until="domcontentloaded", timeout=30000)
+            
+            await page.wait_for_selector('[data-testid="tweetTextarea_0"]', timeout=20000)
+            await page.click('[data-testid="tweetTextarea_0"]')
+            await asyncio.sleep(random.uniform(0.5, 1.5))
+            
+            await page.keyboard.type(text, delay=random.randint(10, 50))
+            await asyncio.sleep(random.uniform(0.5, 1.5))
+            
+            if image_path:
+                try:
+                    await page.set_input_files('input[type="file"]', image_path)
+                    await asyncio.sleep(5)
+                except Exception as e:
+                    logger.warning(f"File upload failed: {e}")
+                
+            await page.click('[data-testid="tweetButton"]')
+            await asyncio.sleep(5)
+            logger.info("Tweet posted successfully via Playwright!")
+            LAST_ENG_POST_TIME = time.time()
+            return True
+            
+    except Exception as e:
+        logger.error(f"Failed to post via Playwright: {e}")
+        try:
+            await page.screenshot(path=f"failed_post_{int(time.time())}.png")
+        except:
+            pass
+        return False
+    finally:
+        await page.close()
 
-async def handle_engagement_posts():
+
+async def handle_engagement_posts(context):
     """Check if it's time to post an engagement tweet and do so if needed."""
     global LAST_ENG_POST_TIME
     
@@ -506,21 +565,22 @@ async def handle_engagement_posts():
     if not content or not content.get("tweet"):
         return
 
-    media_id = None
+    media_path = None
     if with_image and content.get("image_prompt"):
         img_file = generate_dalle_image(content["image_prompt"])
         if img_file:
-            media_id = upload_media(img_file)
-            # Cleanup local file
-            try: os.remove(img_file)
-            except: pass
+            media_path = img_file
 
-    success = post_tweet(content["tweet"], media_id=media_id)
+    success = await post_tweet_playwright(context, content["tweet"], image_path=media_path)
     if success:
         increment_daily_count("eng_posts")
-        if media_id:
+        if media_path:
             increment_daily_count("img_posts")
-        logger.info(f"Engagement post shared! Today's counts: {get_daily_counts()}")
+        logger.info(f"Engagement post shared via Playwright! Today's counts: {get_daily_counts()}")
+        
+    if media_path:
+        try: os.remove(media_path)
+        except: pass
 
 async def scrape_tweet_content(page, tweet_url):
     """Visit a specific tweet URL and determine if it's a root tweet using multiple methods."""
@@ -754,7 +814,7 @@ async def main():
         while True:
             try:
                 # 1. Handle Engagement Posts (randomly throughout the day)
-                await handle_engagement_posts()
+                await handle_engagement_posts(context)
 
                 # 2. Check daily limit for replies
                 counts = get_daily_counts()
@@ -842,7 +902,7 @@ async def main():
                     await asyncio.sleep(wait_time)
                     
                     # 7. Post Reply
-                    success = post_reply(analysis["reply"], parent_id)
+                    success = await post_tweet_playwright(context, analysis["reply"], reply_to_id=parent_id)
                     if success:
                         processed_ids.add(parent_id)
                         save_processed_ids(processed_ids)
