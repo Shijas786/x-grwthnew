@@ -629,6 +629,7 @@ async def scrape_influencer_replies(browser_context, username):
                     is_reply = True
                 
                 if not is_reply:
+                    logger.info(f"Skipping element: 'Replying to' or '@' not found in HTML snippet.")
                     continue
                 
                 # Extract links to find parent tweet
@@ -648,6 +649,7 @@ async def scrape_influencer_replies(browser_context, username):
                 # 1. The parent tweet (at least one)
                 # 2. The influencer's reply tweet itself
                 if len(unique_ids) < 2:
+                    logger.info(f"Skipping element: Found {len(unique_ids)} unique status IDs (needs >= 2). IDs found: {unique_ids}")
                     continue
                     
                 parent_id = unique_ids[0]
