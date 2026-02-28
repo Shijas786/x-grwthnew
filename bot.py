@@ -190,12 +190,22 @@ def verify_authentication():
         logger.error(f"Error during auth verification: {e}")
         return False
 
-def openai_analyze_and_reply(tweet_text, author):
-    """Use GPT-4 to analyze a tweet and generate a human-like reply."""
+def openai_analyze_and_reply(tweet_text, author, influencer_reply_text=""):
+    """Use GPT-4 to analyze a tweet and generate a human-like reply, optionally mimicking an influencer."""
     if not OPENAI_API_KEY:
         logger.error("OPENAI_API_KEY not set.")
         return {"should_reply": False, "reply": ""}
         
+    style_instruction = ""
+    if influencer_reply_text:
+        style_instruction = f"""
+CRITICAL STYLE REQUIREMENT: 
+The influencer you are acting as just replied to this exact tweet with this exact text: 
+"{influencer_reply_text}"
+
+You MUST write a new reply that perfectly matches their unique tone, vocabulary, cadence, and attitude. Do not copy their reply word-for-word, but write variations that sound exactly like something this specific person would say. If they use lowercase, you use lowercase. If they are brief, you be brief. Match their exact vibe.
+"""
+
     prompt = f"""You are a smart, witty social media user who engages genuinely with tweets.
 
 A user named @{author} posted this tweet:
@@ -206,12 +216,14 @@ Your tasks:
    Skip if it is: spam, adult content, political extremism, gibberish, 
    or a photo with no text context.
 
-2. If worth replying, write ONE short reply that:
+2. If worth replying, write ONE short reply that answers them or adds to the conversation.
+{style_instruction}
+
+Guidelines for your reply:
    - Sounds completely human and natural (NOT like a bot)
-   - Adds value, is witty, insightful, or asks a genuine question
    - Is 1-2 sentences max
    - Does NOT start with Great post! or generic praise
-   - Does NOT emoji
+   - Does NOT emoji unless the influencer uses them heavily
    - Does NOT mention you are an AI
 
 Respond ONLY in this exact JSON format:
@@ -814,13 +826,20 @@ async def scrape_influencer_replies(browser_context, username):
                 # The influencer's reply tweet itself
                 tweet_id = unique_ids[-1]
                 
+                # Extract the text of the influencer's reply to use for style matching
+                reply_text = ""
+                text_el = await el.query_selector('[data-testid="tweetText"]')
+                if text_el:
+                    reply_text = await text_el.inner_text()
+                
                 # Basic metadata
                 time_el = await el.query_selector('time')
                 timestamp = await time_el.get_attribute("datetime") if time_el else None
                 
                 results.append({
                     "influencer_reply_id": tweet_id,
-                    "timestamp": timestamp
+                    "timestamp": timestamp,
+                    "reply_text": reply_text
                 })
             except Exception as e:
                 logger.error(f"Error processing tweet element: {e}")
@@ -874,6 +893,7 @@ async def main():
                 
                 for item in influencer_replies:
                     influencer_reply_id = item["influencer_reply_id"]
+                    influencer_original_text = item.get("reply_text", "")
                     
                     # 1. Skip if already processed this reply chain
                     if f"reply_{influencer_reply_id}" in processed_ids:
@@ -929,7 +949,8 @@ async def main():
 
                     # 5. OpenAI Analysis
                     logger.info(f"Analyzing root tweet by @{author}: {root_data['text'][:100]}...")
-                    analysis = openai_analyze_and_reply(root_data["text"], author)
+                    logger.info(f"Using style context from influencer's original reply: {influencer_original_text[:50]}...")
+                    analysis = openai_analyze_and_reply(root_data["text"], author, influencer_reply_text=influencer_original_text)
                     
                     if not analysis.get("should_reply"):
                         logger.info(f"OpenAI skip: {analysis.get('reason')}")
