@@ -745,13 +745,20 @@ async def scrape_parent_from_thread(page, reply_url):
             parts = author_text.split("@")
             if len(parts) > 1:
                 author = parts[1].split("\n")[0].split("·")[0].strip()
-                
+
+        # Check if the root tweet has media
+        has_media = False
+        if await root_el.query_selector('[data-testid="tweetPhoto"]') or await root_el.query_selector('video'):
+            has_media = True
+            logger.info(f"Derived parent tweet {parent_id} by @{author} contains media. Skipping.")
+
         logger.info(f"Derived parent tweet {parent_id} by @{author}: {text[:50]}...")
         return {
             "is_root": True,
             "text": text,
             "author": author,
-            "tweet_id": parent_id
+            "tweet_id": parent_id,
+            "has_media": has_media
         }
     except Exception as e:
         logger.error(f"Error scraping parent from thread {reply_url}: {e}")
@@ -956,6 +963,12 @@ async def main():
                     
                         if not root_data["text"].strip():
                             logger.info(f"Skipping {parent_id}: Content is empty.")
+                            processed_ids.add(parent_id)
+                            save_processed_ids(processed_ids)
+                            continue
+                            
+                        if root_data.get("has_media"):
+                            logger.info(f"Skipping {parent_id}: Contains images or videos.")
                             processed_ids.add(parent_id)
                             save_processed_ids(processed_ids)
                             continue
