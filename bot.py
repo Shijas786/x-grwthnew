@@ -580,6 +580,56 @@ async def scrape_tweet_content(page, tweet_url):
         logger.error(f"Error scraping tweet content at {tweet_url}: {e}")
         return None
 
+async def scrape_parent_from_thread(page, reply_url):
+    """Visit a reply URL, forcing X to render the thread, and extract the parent (root) tweet from the top of the thread."""
+    try:
+        logger.info(f"Loading thread for reply: {reply_url}")
+        await page.goto(reply_url, wait_until="networkidle")
+        await asyncio.sleep(5)
+        
+        # In a thread view, the first tweet is usually the earliest loaded parent
+        tweet_elements = await page.query_selector_all('[data-testid="tweet"]')
+        
+        if not tweet_elements or len(tweet_elements) < 2:
+            logger.info(f"Thread for {reply_url} doesn't show multiple tweets. Possibly deleted parent or not a reply.")
+            return None
+            
+        root_el = tweet_elements[0]
+        
+        links = await root_el.query_selector_all('a[href*="/status/"]')
+        parent_id = None
+        for link in links:
+            href = await link.get_attribute("href")
+            if href and "status" in href.split("/"):
+                parent_id = href.split("/")[-1]
+                break
+                
+        if not parent_id:
+            logger.warning("Could not extract parent_id from the top tweet in the thread.")
+            return None
+            
+        text_el = await root_el.query_selector('[data-testid="tweetText"]')
+        text = await text_el.inner_text() if text_el else ""
+        
+        author_el = await root_el.query_selector('[data-testid="User-Name"]')
+        author_text = await author_el.inner_text() if author_el else ""
+        author = ""
+        if "@" in author_text:
+            parts = author_text.split("@")
+            if len(parts) > 1:
+                author = parts[1].split("\n")[0].split("·")[0].strip()
+                
+        logger.info(f"Derived parent tweet {parent_id} by @{author}: {text[:50]}...")
+        return {
+            "is_root": True,
+            "text": text,
+            "author": author,
+            "tweet_id": parent_id
+        }
+    except Exception as e:
+        logger.error(f"Error scraping parent from thread {reply_url}: {e}")
+        return None
+
 async def scrape_influencer_replies(browser_context, username):
     """Scrape the influencer's profile/with_replies page."""
     page = await browser_context.new_page()
@@ -645,14 +695,10 @@ async def scrape_influencer_replies(browser_context, username):
                 # Unique status IDs, sorted
                 unique_ids = list(dict.fromkeys(status_ids))
                 
-                # If it's a reply by the influencer, we expect at least 2 unique status IDs:
-                # 1. The parent tweet (at least one)
-                # 2. The influencer's reply tweet itself
-                if len(unique_ids) < 2:
-                    logger.info(f"Skipping element: Found {len(unique_ids)} unique status IDs (needs >= 2). IDs found: {unique_ids}")
+                if len(unique_ids) == 0:
                     continue
                     
-                parent_id = unique_ids[0]
+                # The influencer's reply tweet itself
                 tweet_id = unique_ids[-1]
                 
                 # Basic metadata
@@ -660,7 +706,6 @@ async def scrape_influencer_replies(browser_context, username):
                 timestamp = await time_el.get_attribute("datetime") if time_el else None
                 
                 results.append({
-                    "parent_id": parent_id,
                     "influencer_reply_id": tweet_id,
                     "timestamp": timestamp
                 })
@@ -715,28 +760,37 @@ async def main():
                 logger.info(f"Scraped {len(influencer_replies)} potential reply chains.")
                 
                 for item in influencer_replies:
-                    parent_id = item["parent_id"]
+                    influencer_reply_id = item["influencer_reply_id"]
                     
-                    # 1. Skip if already processed
-                    if parent_id in processed_ids:
+                    # 1. Skip if already processed this reply chain
+                    if f"reply_{influencer_reply_id}" in processed_ids:
                         continue
                     
                     # 2. Skip if influencer's reply is too old (> 2 hours)
                     if not is_recent(item["timestamp"]):
-                        logger.info(f"Skipping tweet {parent_id}: Too old.")
-                        processed_ids.add(parent_id)
+                        logger.info(f"Skipping reply {influencer_reply_id}: Too old.")
+                        processed_ids.add(f"reply_{influencer_reply_id}")
                         save_processed_ids(processed_ids)
                         continue
 
-                    # 3. Visit parent tweet to confirm it's a ROOT tweet
-                    parent_url = f"https://x.com/i/status/{parent_id}"
+                    # 3. Visit the reply thread to get the actual ROOT parent tweet
+                    reply_url = f"https://x.com/i/status/{influencer_reply_id}"
                     temp_page = await context.new_page()
-                    root_data = await scrape_tweet_content(temp_page, parent_url)
+                    root_data = await scrape_parent_from_thread(temp_page, reply_url)
                     await temp_page.close()
                     
-                    if not root_data or not root_data.get("is_root"):
-                        logger.info(f"Skipping {parent_id}: Not a root tweet.")
-                        processed_ids.add(parent_id)
+                    if not root_data:
+                        logger.info(f"Skipping {influencer_reply_id}: Not a valid reply thread.")
+                        processed_ids.add(f"reply_{influencer_reply_id}")
+                        save_processed_ids(processed_ids)
+                        continue
+                        
+                    parent_id = root_data["tweet_id"]
+                    
+                    # Avoid double-replying to the same parent if the influencer replies to it multiple times
+                    if parent_id in processed_ids:
+                        logger.info(f"Skipping {parent_id}: Parent already processed.")
+                        processed_ids.add(f"reply_{influencer_reply_id}")
                         save_processed_ids(processed_ids)
                         continue
                         
