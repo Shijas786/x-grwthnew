@@ -162,6 +162,8 @@ def verify_authentication():
         "authorization": "Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I7BeIg1De8k%3DUq7gSnUYohsYmy88vuW8u0AaSMVYmFcwDLUeJMoTakMGbBBLsw",
         "cookie": f"auth_token={X_AUTH_TOKEN}; ct0={X_CT0}",
         "x-csrf-token": X_CT0,
+        "x-twitter-auth-type": "OAuth2Session",
+        "x-twitter-active-user": "yes",
         "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
     }
     
@@ -287,8 +289,8 @@ def generate_dalle_image(prompt):
 
 def upload_media(file_path):
     """Upload media to X and return the media_id."""
-    # Use upload.twitter.com which is more stable for GraphQL media uploads
-    base_url = "https://upload.twitter.com/i/api/1.1/media/upload.json"
+    # Use upload.x.com which the modern web client uses
+    base_url = "https://upload.x.com/i/api/1.1/media/upload.json"
     headers = {
         "authorization": "Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I7BeIg1De8k%3DUq7gSnUYohsYmy88vuW8u0AaSMVYmFcwDLUeJMoTakMGbBBLsw",
         "cookie": f"auth_token={X_AUTH_TOKEN}; ct0={X_CT0}",
