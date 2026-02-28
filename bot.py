@@ -484,6 +484,20 @@ async def post_tweet_playwright(context, text, image_path=None, reply_to_id=None
             await page.goto(url, wait_until="domcontentloaded", timeout=30000)
             
             await page.wait_for_selector('[data-testid="tweetTextarea_0"]', timeout=20000)
+            
+            # Attempt to follow the user before replying
+            try:
+                # Look for a button with an aria-label that starts with "Follow @"
+                follow_btn = await page.query_selector('button[aria-label^="Follow @"]')
+                if follow_btn:
+                    logger.info("Found an unfollowed 'Follow' button. Clicking it...")
+                    await follow_btn.click()
+                    await asyncio.sleep(random.uniform(1.0, 2.0))
+                else:
+                    logger.info("No 'Follow' button found or already followed.")
+            except Exception as e:
+                logger.warning(f"Could not follow user: {e}")
+
             await page.click('[data-testid="tweetTextarea_0"]')
             await asyncio.sleep(random.uniform(0.5, 1.5))
             
