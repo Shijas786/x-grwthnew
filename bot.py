@@ -124,22 +124,16 @@ def humanized_delay():
         logger.info("Random decision: skipping this reply opportunity.")
         return False
     
-    # Base delay: 3 to 18 minutes
-    delay = random.uniform(3*60, 18*60)
-    
-    # 20% chance for extra delay: 10 to 30 minutes
-    if random.random() < 0.20:
-        extra = random.uniform(10*60, 30*60)
-        delay += extra
-        logger.info(f"Adding extra human delay: {extra/60:.2f} minutes")
+    # Base delay: 5 to 10 seconds for testing
+    delay = random.uniform(5, 10)
         
-    logger.info(f"Humanized delay sequence: waiting {delay/60:.2f} minutes before reply...")
+    logger.info(f"Humanized delay sequence: waiting {delay:.2f} seconds before reply...")
     return delay
 
 async def poll_delay():
-    """Delay between polling cycles: 4 to 12 minutes."""
-    delay = random.uniform(4*60, 12*60)
-    logger.info(f"Cycle complete. Sleeping for {delay/60:.2f} minutes before next poll.")
+    """Delay between polling cycles: 10 to 20 seconds for testing."""
+    delay = random.uniform(10, 20)
+    logger.info(f"Cycle complete. Sleeping for {delay:.2f} seconds before next poll.")
     await asyncio.sleep(delay)
 
 # OpenAI Integration
