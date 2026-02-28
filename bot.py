@@ -30,8 +30,6 @@ load_dotenv()
 X_AUTH_TOKEN = os.getenv("X_AUTH_TOKEN", "").strip()
 X_CT0 = os.getenv("X_CT0", "").strip()
 OUR_USERNAME = os.getenv("OUR_USERNAME", "").strip()
-# Allow multiple influencers separated by comma
-TARGET_INFLUENCER_USERNAMES = [u.strip() for u in os.getenv("TARGET_INFLUENCER_USERNAME", "").split(",") if u.strip()]
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "").strip()
 MAX_REPLIES_PER_DAY = int(os.getenv("MAX_REPLIES_PER_DAY", 20))
 MAX_ENG_POSTS_PER_DAY = int(os.getenv("MAX_ENG_POSTS_PER_DAY", 3))
@@ -257,9 +255,14 @@ Respond ONLY in this exact JSON format:
 
 def generate_engagement_content(with_image=False):
     """Generate engagement-focused tweet text and an optional image prompt."""
-    prompt = """You are a smart, witty social media user. 
-Generate ONE high-engagement tweet that adds value, asks a question, or shares an insight.
-- Sounds human (NOT bot-like)
+    prompt = """You are a smart, tech-savvy social media user. 
+Generate ONE high-engagement tweet that adds value. The topic MUST be about one of the following:
+- Tech or AI tutorials
+- Easy money-making hacks on the internet
+- Useful internet tricks and tools
+
+Guidelines:
+- Sounds human and experienced (NOT bot-like)
 - No generic 'Great day!' stuff
 - No emojis
 - 1-2 sentences max
@@ -854,7 +857,7 @@ async def scrape_influencer_replies(browser_context, username):
 
 async def main():
     """Main execution loop."""
-    logger.info(f"Bot starting... Targets: {', '.join(TARGET_INFLUENCER_USERNAMES)}")
+    logger.info("Bot starting...")
     
     # Verify authentication first
     if not verify_authentication():
@@ -888,8 +891,18 @@ async def main():
                     await asyncio.sleep(1800) # Check every 30 mins
                     continue
 
+                # Parse the target influencers directly from the environment variable on every loop
+                # This ensures we pick up changes without needing to restart the container if the environment changes
+                raw_targets = os.getenv("TARGET_INFLUENCER_USERNAME", "").strip()
+                target_influencer_usernames = [u.strip() for u in raw_targets.split(",") if u.strip()]
+                
+                if not target_influencer_usernames:
+                    logger.error("No TARGET_INFLUENCER_USERNAME found in environment variables. Sleeping.")
+                    await poll_delay()
+                    continue
+
                 # 3. Scrape influencer's replies
-                for target_username in TARGET_INFLUENCER_USERNAMES:
+                for target_username in target_influencer_usernames:
                     influencer_replies = await scrape_influencer_replies(context, target_username)
                     logger.info(f"Scraped {len(influencer_replies)} potential reply chains for @{target_username}.")
                     
@@ -931,8 +944,8 @@ async def main():
                         
                     # 4. Safety Filters
                     author = root_data["author"]
-                    if author.lower() == target_username.lower():
-                        logger.info(f"Skipping {parent_id}: Author is the influencer themselves.")
+                    if author.lower() in [u.lower() for u in target_influencer_usernames]:
+                        logger.info(f"Skipping {parent_id}: Author is one of our target influencers.")
                         processed_ids.add(parent_id)
                         save_processed_ids(processed_ids)
                         continue
