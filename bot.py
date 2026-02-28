@@ -31,16 +31,17 @@ X_AUTH_TOKEN = os.getenv("X_AUTH_TOKEN", "").strip()
 X_CT0 = os.getenv("X_CT0", "").strip()
 OUR_USERNAME = os.getenv("OUR_USERNAME", "").strip()
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "").strip()
-MAX_REPLIES_PER_DAY = int(os.getenv("MAX_REPLIES_PER_DAY", 20))
+MAX_REPLIES_PER_DAY = int(os.getenv("MAX_REPLIES_PER_DAY", 15))
 MAX_ENG_POSTS_PER_DAY = int(os.getenv("MAX_ENG_POSTS_PER_DAY", 3))
 MAX_IMG_POSTS_PER_DAY = int(os.getenv("MAX_IMG_POSTS_PER_DAY", 1))
 REPLY_LANGUAGE = os.getenv("REPLY_LANGUAGE", "English")
 
 # Constants
-PROCESSED_IDS_FILE = "processed_ids.json"
-DAILY_COUNT_FILE = "daily_count.json"
-LOG_FILE = "bot.log"
-MIN_GAP_BETWEEN_REPLIES = 90  # Seconds
+DATA_DIR = os.getenv("DATA_DIR", ".")
+PROCESSED_IDS_FILE = os.path.join(DATA_DIR, "processed_ids.json")
+DAILY_COUNT_FILE = os.path.join(DATA_DIR, "daily_count.json")
+LOG_FILE = os.path.join(DATA_DIR, "bot.log")
+MIN_GAP_BETWEEN_REPLIES = 300  # 5 Minutes
 LAST_REPLY_TIME = 0
 LAST_ENG_POST_TIME = 0
 
@@ -118,20 +119,20 @@ def is_recent(timestamp_str):
 # Humanized Delay and Limits
 def humanized_delay():
     """Determine the delay before posting a reply. Returns False if we should skip."""
-    # 10% chance to skip
-    if random.random() < 0.10:
+    # 15% chance to skip
+    if random.random() < 0.15:
         logger.info("Random decision: skipping this reply opportunity.")
         return False
     
-    # Base delay: 5 to 10 seconds for testing
-    delay = random.uniform(5, 10)
+    # Base delay: 15 to 45 seconds to mimic human reading and typing
+    delay = random.uniform(15, 45)
         
     logger.info(f"Humanized delay sequence: waiting {delay:.2f} seconds before reply...")
     return delay
 
 async def poll_delay():
-    """Delay between polling cycles: 10 to 20 seconds for testing."""
-    delay = random.uniform(10, 20)
+    """Delay between polling cycles: 30 to 120 seconds to be safe from rate limits."""
+    delay = random.uniform(30, 120)
     logger.info(f"Cycle complete. Sleeping for {delay:.2f} seconds before next poll.")
     await asyncio.sleep(delay)
 
