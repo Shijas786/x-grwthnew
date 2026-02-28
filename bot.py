@@ -584,8 +584,16 @@ async def scrape_parent_from_thread(page, reply_url):
     """Visit a reply URL, forcing X to render the thread, and extract the parent (root) tweet from the top of the thread."""
     try:
         logger.info(f"Loading thread for reply: {reply_url}")
-        await page.goto(reply_url, wait_until="networkidle")
-        await asyncio.sleep(5)
+        # Use domcontentloaded instead of networkidle, as X.com's polling prevents networkidle
+        await page.goto(reply_url, wait_until="domcontentloaded", timeout=20000)
+        
+        # Wait specifically for tweets to render
+        try:
+            await page.wait_for_selector('[data-testid="tweet"]', timeout=10000)
+        except:
+            pass # We will check if it exists below anyway
+            
+        await asyncio.sleep(3) # small buffer for React hydration
         
         # In a thread view, the first tweet is usually the earliest loaded parent
         tweet_elements = await page.query_selector_all('[data-testid="tweet"]')
