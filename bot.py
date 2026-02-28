@@ -41,7 +41,7 @@ DATA_DIR = os.getenv("DATA_DIR", ".")
 PROCESSED_IDS_FILE = os.path.join(DATA_DIR, "processed_ids.json")
 DAILY_COUNT_FILE = os.path.join(DATA_DIR, "daily_count.json")
 LOG_FILE = os.path.join(DATA_DIR, "bot.log")
-MIN_GAP_BETWEEN_REPLIES = 300  # 5 Minutes
+MIN_GAP_BETWEEN_REPLIES = (240, 600)  # Random gap between 4 and 10 minutes
 LAST_REPLY_TIME = 0
 LAST_ENG_POST_TIME = 0
 
@@ -473,9 +473,10 @@ async def post_tweet_playwright(context, text, image_path=None, reply_to_id=None
         if reply_to_id:
             # Enforce minimum gap
             now = time.time()
-            if now - LAST_REPLY_TIME < MIN_GAP_BETWEEN_REPLIES:
-                wait_needed = MIN_GAP_BETWEEN_REPLIES - (now - LAST_REPLY_TIME)
-                logger.info(f"Enforcing minimum gap. Waiting {wait_needed:.2f} seconds...")
+            target_gap = random.uniform(MIN_GAP_BETWEEN_REPLIES[0], MIN_GAP_BETWEEN_REPLIES[1])
+            if now - LAST_REPLY_TIME < target_gap:
+                wait_needed = target_gap - (now - LAST_REPLY_TIME)
+                logger.info(f"Enforcing minimum gap. Waiting {wait_needed:.2f} seconds ({wait_needed/60:.2f} minutes)...")
                 await asyncio.sleep(wait_needed)
 
             url = f"https://x.com/i/status/{reply_to_id}"
