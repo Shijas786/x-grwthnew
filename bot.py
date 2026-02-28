@@ -253,24 +253,23 @@ Respond ONLY in this exact JSON format:
         logger.error(f"OpenAI error: {e}")
         return {"should_reply": False, "reply": ""}
 
-def generate_engagement_content(with_image=False):
+def generate_engagement_content():
     """Generate engagement-focused tweet text and an optional image prompt."""
-    prompt = """You are a smart, tech-savvy social media user. 
-Generate ONE high-engagement tweet that adds value. The topic MUST be about one of the following:
+    prompt = """You are a regular, tech-savvy guy sharing quick thoughts on Twitter.
+Generate ONE highly casual tweet. The topic MUST be about one of the following:
 - Tech or AI tutorials
 - Easy money-making hacks on the internet
 - Useful internet tricks and tools
 
 Guidelines:
-- Sounds human and experienced (NOT bot-like)
-- No generic 'Great day!' stuff
-- No emojis
-- 1-2 sentences max
+- Sounds SUPER casual, like a quick thought typed on a phone.
+- Use lowercase letters sometimes, maybe imperfect punctuation.
+- NO hashtags, NO emojis, NO generic 'Great day!' stuff.
+- Should sound like insider advice from a real person.
+- 1-2 short sentences max.
 """
-    if with_image:
-        prompt += "\nAlso, provide a short, descriptive prompt for DALL-E 3 to generate an image that complements this tweet."
     
-    prompt += "\nRespond ONLY in this JSON format:\n{\n  \"tweet\": \"tweet text\",\n  \"image_prompt\": \"image prompt or empty string\"\n}"
+    prompt += "\nRespond ONLY in this JSON format:\n{\n  \"tweet\": \"tweet text\"\n}"
     
     try:
         response = openai_client.chat.completions.create(
@@ -613,16 +612,11 @@ async def handle_engagement_posts(context):
     if elapsed < wait_time:
         return
 
-    # Decide if we want an image (1-2 per day limit)
+    # Disable image generation completely per user request
     with_image = False
-    if counts["img_posts"] < MAX_IMG_POSTS_PER_DAY:
-        # Higher chance if we haven't posted any images yet today
-        chance = 0.5 if counts["img_posts"] == 0 else 0.2
-        if random.random() < chance:
-            with_image = True
 
     logger.info(f"Starting engagement post cycle (with_image={with_image})")
-    content = generate_engagement_content(with_image=with_image)
+    content = generate_engagement_content()
     if not content or not content.get("tweet"):
         return
 
