@@ -909,6 +909,11 @@ async def main():
                         
                     # 4. Safety Filters
                     author = root_data["author"]
+                    if author.lower() == TARGET_INFLUENCER_USERNAME.lower():
+                        logger.info(f"Skipping {parent_id}: Author is the influencer themselves.")
+                        processed_ids.add(parent_id)
+                        save_processed_ids(processed_ids)
+                        continue
                     
                     if author.lower() == OUR_USERNAME.lower():
                         logger.info(f"Skipping {parent_id}: Author is us.")
