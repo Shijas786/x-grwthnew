@@ -30,7 +30,8 @@ load_dotenv()
 X_AUTH_TOKEN = os.getenv("X_AUTH_TOKEN", "").strip()
 X_CT0 = os.getenv("X_CT0", "").strip()
 OUR_USERNAME = os.getenv("OUR_USERNAME", "").strip()
-TARGET_INFLUENCER_USERNAME = os.getenv("TARGET_INFLUENCER_USERNAME", "").strip()
+# Allow multiple influencers separated by comma
+TARGET_INFLUENCER_USERNAMES = [u.strip() for u in os.getenv("TARGET_INFLUENCER_USERNAME", "").split(",") if u.strip()]
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "").strip()
 MAX_REPLIES_PER_DAY = int(os.getenv("MAX_REPLIES_PER_DAY", 20))
 MAX_ENG_POSTS_PER_DAY = int(os.getenv("MAX_ENG_POSTS_PER_DAY", 3))
@@ -853,7 +854,7 @@ async def scrape_influencer_replies(browser_context, username):
 
 async def main():
     """Main execution loop."""
-    logger.info(f"Bot starting... Target: @{TARGET_INFLUENCER_USERNAME}")
+    logger.info(f"Bot starting... Targets: {', '.join(TARGET_INFLUENCER_USERNAMES)}")
     
     # Verify authentication first
     if not verify_authentication():
@@ -888,16 +889,17 @@ async def main():
                     continue
 
                 # 3. Scrape influencer's replies
-                influencer_replies = await scrape_influencer_replies(context, TARGET_INFLUENCER_USERNAME)
-                logger.info(f"Scraped {len(influencer_replies)} potential reply chains.")
-                
-                for item in influencer_replies:
-                    influencer_reply_id = item["influencer_reply_id"]
-                    influencer_original_text = item.get("reply_text", "")
+                for target_username in TARGET_INFLUENCER_USERNAMES:
+                    influencer_replies = await scrape_influencer_replies(context, target_username)
+                    logger.info(f"Scraped {len(influencer_replies)} potential reply chains for @{target_username}.")
                     
-                    # 1. Skip if already processed this reply chain
-                    if f"reply_{influencer_reply_id}" in processed_ids:
-                        continue
+                    for item in influencer_replies:
+                        influencer_reply_id = item["influencer_reply_id"]
+                        influencer_original_text = item.get("reply_text", "")
+                        
+                        # 1. Skip if already processed this reply chain
+                        if f"reply_{influencer_reply_id}" in processed_ids:
+                            continue
                     
                     # 2. Skip if influencer's reply is too old (> 2 hours)
                     if not is_recent(item["timestamp"]):
@@ -929,7 +931,7 @@ async def main():
                         
                     # 4. Safety Filters
                     author = root_data["author"]
-                    if author.lower() == TARGET_INFLUENCER_USERNAME.lower():
+                    if author.lower() == target_username.lower():
                         logger.info(f"Skipping {parent_id}: Author is the influencer themselves.")
                         processed_ids.add(parent_id)
                         save_processed_ids(processed_ids)
