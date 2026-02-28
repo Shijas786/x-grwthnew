@@ -459,6 +459,7 @@ async def post_tweet_playwright(context, text, image_path=None, reply_to_id=None
     
     page = await context.new_page()
     try:
+        button_clicked = False
         if reply_to_id:
             # Enforce minimum gap
             now = time.time()
@@ -476,7 +477,7 @@ async def post_tweet_playwright(context, text, image_path=None, reply_to_id=None
             await asyncio.sleep(random.uniform(0.5, 1.5))
             
             await page.keyboard.type(text, delay=random.randint(10, 50))
-            await asyncio.sleep(random.uniform(0.5, 1.5))
+            await asyncio.sleep(random.uniform(1.0, 2.5))
             
             if image_path:
                 try:
@@ -485,11 +486,21 @@ async def post_tweet_playwright(context, text, image_path=None, reply_to_id=None
                 except Exception as e:
                     logger.warning(f"File upload failed: {e}")
                 
-            await page.click('[data-testid="tweetButtonInline"]')
-            await asyncio.sleep(5)
-            logger.info("Reply posted successfully via Playwright!")
-            LAST_REPLY_TIME = time.time()
-            return True
+            btn_selector = '[data-testid="tweetButtonInline"]'
+            
+            # Check if button is disabled
+            is_disabled = await page.evaluate(f'''() => {{
+                const btn = document.querySelector('{btn_selector}');
+                return btn ? btn.disabled || btn.getAttribute('aria-disabled') === 'true' : true;
+            }}''')
+            
+            if is_disabled:
+                logger.error("Reply button is DISABLED. X may have flagged the session or text is invalid.")
+                return False
+
+            await page.click(btn_selector)
+            button_clicked = True
+            
         else:
             url = "https://x.com/compose/tweet"
             logger.info("Navigating to compose tweet page...")
@@ -500,7 +511,7 @@ async def post_tweet_playwright(context, text, image_path=None, reply_to_id=None
             await asyncio.sleep(random.uniform(0.5, 1.5))
             
             await page.keyboard.type(text, delay=random.randint(10, 50))
-            await asyncio.sleep(random.uniform(0.5, 1.5))
+            await asyncio.sleep(random.uniform(1.0, 2.5))
             
             if image_path:
                 try:
@@ -509,16 +520,56 @@ async def post_tweet_playwright(context, text, image_path=None, reply_to_id=None
                 except Exception as e:
                     logger.warning(f"File upload failed: {e}")
                 
-            await page.click('[data-testid="tweetButton"]')
-            await asyncio.sleep(5)
-            logger.info("Tweet posted successfully via Playwright!")
-            LAST_ENG_POST_TIME = time.time()
-            return True
+            btn_selector = '[data-testid="tweetButton"]'
             
+            is_disabled = await page.evaluate(f'''() => {{
+                const btn = document.querySelector('{btn_selector}');
+                return btn ? btn.disabled || btn.getAttribute('aria-disabled') === 'true' : true;
+            }}''')
+            
+            if is_disabled:
+                logger.error("Tweet button is DISABLED. X may have flagged the session.")
+                return False
+                
+            await page.click(btn_selector)
+            button_clicked = True
+        
+        if button_clicked:
+            # Wait to see if a toast appears (Success or Error)
+            try:
+                toast = await page.wait_for_selector('[data-testid="toast"]', timeout=10000)
+                toast_text = await toast.inner_text()
+                logger.info(f"X Toast seen: {toast_text}")
+                
+                if "error" in toast_text.lower() or "automated" in toast_text.lower() or "failed" in toast_text.lower() or "wrong" in toast_text.lower():
+                    logger.error(f"X REJECTED the post via Toast: {toast_text}")
+                    return False
+            except Exception as e:
+                # No toast appeared, check if text area is still heavily populated (meaning click failed silently)
+                box = await page.query_selector('[data-testid="tweetTextarea_0"]')
+                if box:
+                    inner_txt = await box.inner_text()
+                    if len(inner_txt.strip()) > 5: # If our long reply is still sitting there
+                        logger.error("Click silently failed. Text area still contains the prompt. X might be soft-blocking.")
+                        return False
+                logger.info("No toast seen, but text area cleared. Assuming success.")
+
+            # Success tracking
+            if reply_to_id:
+                LAST_REPLY_TIME = time.time()
+                logger.info("Reply posted successfully via Playwright!")
+            else:
+                LAST_ENG_POST_TIME = time.time()
+                logger.info("Tweet posted successfully via Playwright!")
+                
+            return True
+
     except Exception as e:
         logger.error(f"Failed to post via Playwright: {e}")
         try:
-            await page.screenshot(path=f"failed_post_{int(time.time())}.png")
+            # We can print the exact URL we are on
+            curr_url = page.url
+            logger.error(f"Crashed on URL: {curr_url}")
         except:
             pass
         return False
