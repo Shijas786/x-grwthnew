@@ -914,81 +914,81 @@ async def main():
                         if f"reply_{influencer_reply_id}" in processed_ids:
                             continue
                     
-                    # 2. Skip if influencer's reply is too old (> 2 hours)
-                    if not is_recent(item["timestamp"]):
-                        logger.info(f"Skipping reply {influencer_reply_id}: Too old.")
-                        processed_ids.add(f"reply_{influencer_reply_id}")
-                        save_processed_ids(processed_ids)
-                        continue
+                        # 2. Skip if influencer's reply is too old (> 2 hours)
+                        if not is_recent(item["timestamp"]):
+                            logger.info(f"Skipping reply {influencer_reply_id}: Too old.")
+                            processed_ids.add(f"reply_{influencer_reply_id}")
+                            save_processed_ids(processed_ids)
+                            continue
 
-                    # 3. Visit the reply thread to get the actual ROOT parent tweet
-                    reply_url = f"https://x.com/i/status/{influencer_reply_id}"
-                    temp_page = await context.new_page()
-                    root_data = await scrape_parent_from_thread(temp_page, reply_url)
-                    await temp_page.close()
+                        # 3. Visit the reply thread to get the actual ROOT parent tweet
+                        reply_url = f"https://x.com/i/status/{influencer_reply_id}"
+                        temp_page = await context.new_page()
+                        root_data = await scrape_parent_from_thread(temp_page, reply_url)
+                        await temp_page.close()
                     
-                    if not root_data:
-                        logger.info(f"Skipping {influencer_reply_id}: Not a valid reply thread.")
-                        processed_ids.add(f"reply_{influencer_reply_id}")
-                        save_processed_ids(processed_ids)
-                        continue
+                        if not root_data:
+                            logger.info(f"Skipping {influencer_reply_id}: Not a valid reply thread.")
+                            processed_ids.add(f"reply_{influencer_reply_id}")
+                            save_processed_ids(processed_ids)
+                            continue
                         
-                    parent_id = root_data["tweet_id"]
+                        parent_id = root_data["tweet_id"]
                     
-                    # Avoid double-replying to the same parent if the influencer replies to it multiple times
-                    if parent_id in processed_ids:
-                        logger.info(f"Skipping {parent_id}: Parent already processed.")
-                        processed_ids.add(f"reply_{influencer_reply_id}")
-                        save_processed_ids(processed_ids)
-                        continue
+                        # Avoid double-replying to the same parent if the influencer replies to it multiple times
+                        if parent_id in processed_ids:
+                            logger.info(f"Skipping {parent_id}: Parent already processed.")
+                            processed_ids.add(f"reply_{influencer_reply_id}")
+                            save_processed_ids(processed_ids)
+                            continue
                         
-                    # 4. Safety Filters
-                    author = root_data["author"]
-                    if author.lower() in [u.lower() for u in target_influencer_usernames]:
-                        logger.info(f"Skipping {parent_id}: Author is one of our target influencers.")
-                        processed_ids.add(parent_id)
-                        save_processed_ids(processed_ids)
-                        continue
+                        # 4. Safety Filters
+                        author = root_data["author"]
+                        if author.lower() in [u.lower() for u in target_influencer_usernames]:
+                            logger.info(f"Skipping {parent_id}: Author is one of our target influencers.")
+                            processed_ids.add(parent_id)
+                            save_processed_ids(processed_ids)
+                            continue
                     
-                    if author.lower() == OUR_USERNAME.lower():
-                        logger.info(f"Skipping {parent_id}: Author is us.")
-                        processed_ids.add(parent_id)
-                        save_processed_ids(processed_ids)
-                        continue
+                        if author.lower() == OUR_USERNAME.lower():
+                            logger.info(f"Skipping {parent_id}: Author is us.")
+                            processed_ids.add(parent_id)
+                            save_processed_ids(processed_ids)
+                            continue
                     
-                    if not root_data["text"].strip():
-                        logger.info(f"Skipping {parent_id}: Content is empty.")
-                        processed_ids.add(parent_id)
-                        save_processed_ids(processed_ids)
-                        continue
+                        if not root_data["text"].strip():
+                            logger.info(f"Skipping {parent_id}: Content is empty.")
+                            processed_ids.add(parent_id)
+                            save_processed_ids(processed_ids)
+                            continue
 
-                    # 5. OpenAI Analysis
-                    logger.info(f"Analyzing root tweet by @{author}: {root_data['text'][:100]}...")
-                    logger.info(f"Using style context from influencer's original reply: {influencer_original_text[:50]}...")
-                    analysis = openai_analyze_and_reply(root_data["text"], author, influencer_reply_text=influencer_original_text)
+                        # 5. OpenAI Analysis
+                        logger.info(f"Analyzing root tweet by @{author}: {root_data['text'][:100]}...")
+                        logger.info(f"Using style context from influencer's original reply: {influencer_original_text[:50]}...")
+                        analysis = openai_analyze_and_reply(root_data["text"], author, influencer_reply_text=influencer_original_text)
                     
-                    if not analysis.get("should_reply"):
-                        logger.info(f"OpenAI skip: {analysis.get('reason')}")
-                        processed_ids.add(parent_id)
-                        save_processed_ids(processed_ids)
-                        continue
+                        if not analysis.get("should_reply"):
+                            logger.info(f"OpenAI skip: {analysis.get('reason')}")
+                            processed_ids.add(parent_id)
+                            save_processed_ids(processed_ids)
+                            continue
 
-                    # 6. Humanized Delay
-                    wait_time = humanized_delay()
-                    if wait_time is False: # Decision to skip
-                        processed_ids.add(parent_id)
-                        save_processed_ids(processed_ids)
-                        continue
+                        # 6. Humanized Delay
+                        wait_time = humanized_delay()
+                        if wait_time is False: # Decision to skip
+                            processed_ids.add(parent_id)
+                            save_processed_ids(processed_ids)
+                            continue
                     
-                    await asyncio.sleep(wait_time)
+                        await asyncio.sleep(wait_time)
                     
-                    # 7. Post Reply
-                    success = await post_tweet_playwright(context, analysis["reply"], reply_to_id=parent_id)
-                    if success:
-                        processed_ids.add(parent_id)
-                        save_processed_ids(processed_ids)
-                        new_count = increment_daily_count("replies")
-                        logger.info(f"Reply posted successfully! Daily count: {new_count}/{MAX_REPLIES_PER_DAY}")
+                        # 7. Post Reply
+                        success = await post_tweet_playwright(context, analysis["reply"], reply_to_id=parent_id)
+                        if success:
+                            processed_ids.add(parent_id)
+                            save_processed_ids(processed_ids)
+                            new_count = increment_daily_count("replies")
+                            logger.info(f"Reply posted successfully! Daily count: {new_count}/{MAX_REPLIES_PER_DAY}")
                     
                 # End of cycle delay
                 await poll_delay()
